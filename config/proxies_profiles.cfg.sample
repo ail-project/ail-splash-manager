@@ -1,0 +1,10 @@
+# Tor: torrc default proxy
+# use The torproject proxy https://2019.www.torproject.org/docs/debian
+# (up to date, solve issues with v3 onion addresses)
+[default_tor] 				# proxy name
+host=172.17.0.1				# proxy host
+port=9050 				# proxy port
+type=SOCKS5				# proxy type
+description=tor default proxy		# proxy description
+crawler_type=tor                        # crawler type
+

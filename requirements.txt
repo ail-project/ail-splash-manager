@@ -1,0 +1,6 @@
+#Test Crawlers
+scrapy
+scrapy-splash
+
+#Flask
+flask
