@@ -32,5 +32,5 @@ wait
 wait
 popd
 
-cp gen_cert/server.crt ${AIL_FLASK}/server.crt
-cp gen_cert/server.key ${AIL_FLASK}/server.key
+cp gen_cert/server.crt server.crt
+cp gen_cert/server.key server.key

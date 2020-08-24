@@ -1,3 +1,19 @@
+# certificates
+gen_cert/rootCA.*
+gen_cert/server.*
+server.crt
+server.key
+
+# config
+config/containers.cfg
+config/proxies_profiles.cfg
+
+# proxy profiles
+dockers_proxies_profiles/
+
+# api key
+token_admin.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
