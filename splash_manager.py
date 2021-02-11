@@ -3,6 +3,7 @@
 
 import os
 import configparser
+import json
 import sys
 import subprocess
 
@@ -240,9 +241,11 @@ def get_docker_short_id(container_id):
     return container_id[:12]
 
 def check_docker_install():
-    cmd = ['docker', '-h']
+    cmd = ['docker', '--help']
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.stderr:
+        # # TODO: ADD LOG
+        #print(p.stderr)
         return False
     else:
         return True
@@ -281,6 +284,63 @@ def get_docker_port_cmd(container_id):
         container_port = p.stdout.decode()
         container_port = container_port.replace('\n', '').rsplit(':')[1]
         print(container_port)
+
+def get_docker_gateway(container_id):
+    cmd = ["docker", "inspect", "-f", "'{{.NetworkSettings.Gateway}}'", container_id]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if p.stderr:
+        print(p.stderr)
+        return None
+    else:
+        container_gateway = p.stdout.decode()
+        container_gateway = container_gateway.replace('\n', '').replace("'", "")
+        return container_gateway
+
+def get_docker_binding(container_id):
+    cmd = ["docker", "inspect", "-f", "'{{.HostConfig.Binds}}'", container_id]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if p.stderr:
+        print(p.stderr) # # TODO: LOG
+        return None
+    else:
+        container_binding = p.stdout.decode()
+        container_binding = container_binding[2:-3]
+        return container_binding
+
+def get_docker_mounted_binding(container_id):
+    dict_docker_mounted_binding = {}
+    # Get mounted binding Source
+    cmd = ["docker", "inspect", "-f", "'{{range.Mounts}}{{if eq .Type \"bind\"}}{{.Source}}{{end}}{{end}}'", container_id]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if p.stderr:
+        print(p.stderr) # # TODO: LOGS
+        source = None
+    else:
+        source = p.stdout.decode()
+        source = source[1:-2]
+    dict_docker_mounted_binding['source'] = source
+    # Get mounted binding Destination
+    cmd = ["docker", "inspect", "-f", "'{{range.Mounts}}{{if eq .Type \"bind\"}}{{.Destination}}{{end}}{{end}}'", container_id]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if p.stderr:
+        print(p.stderr) # # TODO: LOGS
+        destination = None
+    else:
+        destination = p.stdout.decode()
+        destination = destination[1:-2]
+    dict_docker_mounted_binding['destination'] = destination
+    return dict_docker_mounted_binding
+
+def get_docker_state(container_id):
+    cmd = ["docker", "inspect", container_id]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if p.stderr:
+        print(p.stderr) # # TODO: LOGS
+        return {}
+    else:
+        dict_docker = p.stdout.decode()
+        dict_docker = json.loads(dict_docker)[0]
+        return dict_docker['State']
 
 def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss=3000):
 
@@ -431,9 +491,75 @@ def launch_init():
     print(all_containers_ports)
     print(map_port_docker_id)
 
-if __name__ == '__main__':
-    launch_init()
+# # # # # # # # # # # # # #
+#                         #
+#   TEST SPLASH CRAWLER   #
+#                         #
+# # # # # # # # # # # # # #
 
-    print(get_all_proxy_profiles())
-    print(get_all_docker_containers())
-    print(get_all_docker_proxy_ports())
+def check_splash_docker_state(container_id):
+    docker_state = get_docker_state(container_id)
+    if docker_state['Error']:
+        print(f'ERROR Docker: {docker_state["Error"]}') ## TODO: LOGS
+
+    # # TODO:  OOMKilled
+    if docker_state['Paused']:
+        print('ERROR: Docker paused') ## TODO: LOGS
+        return False
+    elif docker_state['Restarting']:
+        print('ERROR: Docker restarting') ## TODO: LOGS
+        return False
+    elif docker_state['Status'] != 'running' or not docker_state['Running'] or docker_state['Dead']:
+        print('ERROR: This Docker is not running') ## TODO: LOGS
+        return False
+    else:
+        return True
+
+def test_splash_docker(container_id):
+    if not check_splash_docker_state(container_id):
+        return False
+
+    gateway = get_docker_gateway(container_id)
+    mounted_bind = get_docker_mounted_binding(container_id)
+
+    # proxy profiles
+    mounted_bind['source'] = os.path.join(mounted_bind['source'], 'default.ini')
+    if mounted_bind['destination'] != '/etc/splash/proxy-profiles':
+        print(f'ERROR PROXY PROFILES, Invalid Directory: {mounted_bind["destination"]}') ## TODO: LOGS
+
+    if not os.path.isfile(mounted_bind['source']):
+        print('ERROR PROXY PROFILES NOT FOUND') ## TODO: LOGS
+        return False
+    # Check Proxy
+    else:
+        dict_proxy_src = {}
+        cfg = configparser.ConfigParser()
+        cfg.read(mounted_bind['source'])
+        try:
+            proxy_host = cfg.get('proxy', 'host')
+            proxy_port = cfg.get('proxy', 'port')
+            proxy_type = cfg.get('proxy', 'type')
+        except configparser.NoOptionError as e:
+            print(f'Error: Invalid Proxy profile, missing option: {e}') # # TODO: LOGS
+            return False
+
+    # Check Proxy Host
+    if gateway != proxy_host:
+        print(f'ERROR: The Proxy Host is Invalid: proxy_host={proxy_host} splash_gateway={gateway}') # # TODO: LOGS
+        return False
+
+    return True
+
+# # # # #  ------ # # # # #
+
+if __name__ == '__main__':
+    container_id = '09d64a7d152e'
+    #container_id = '294f7089f41e'
+
+    #get_docker_state(container_id)
+    #print(get_docker_gateway(container_id))
+    #print(get_docker_binding(container_id))
+    #print(get_docker_mounted_binding(container_id))
+
+    res = test_splash_docker(container_id)
+    print(res)
