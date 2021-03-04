@@ -7,231 +7,11 @@ import json
 import sys
 import subprocess
 
-from copy import deepcopy
+from uuid import uuid4
 
-CPU_LIMIT = 4
-MEMORY_LIMIT = 8
-
-docker_containers = {}
-all_proxies = {}
-all_proxies_ports = {}
-all_containers_ports = {}
-map_port_docker_id = {}
-map_port_container_name = {}
-
-#### PROXY ####
-def load_default_proxies_profiles(current_dir):
-    # clear docker proxies dir
-    for root, dirs, files in os.walk(os.path.join(current_dir, 'dockers_proxies_profiles'), topdown=False):
-        for name in files:
-            os.remove(os.path.join(root, name))
-        for name in dirs:
-            os.rmdir(os.path.join(root, name))
-
-    proxies_profiles = os.path.join('config', 'proxies_profiles.cfg')
-    if not os.path.exists(proxies_profiles):
-        raise Exception('Config file: {}, not found'.format(proxies_profiles))
-    cfg = configparser.ConfigParser()
-    cfg.read(proxies_profiles)
-    cfg_sections = cfg.sections()
-
-    for section in cfg_sections:
-        proxy_name = section
-        proxy_name = proxy_name.replace('/', '')
-        proxy_description = cfg.get(section, 'description')
-        proxy_host = cfg.get(section, 'host')
-        proxy_port = cfg.get(section, 'port')
-        proxy_type = cfg.get(section, 'type')
-        crawler_type = cfg.get(section, 'crawler_type')
-        add_proxy(current_dir, proxy_name, proxy_host, proxy_port, proxy_type, crawler_type, proxy_description)
-
-# # TODO: use os.path.realpath()
-def add_proxy(current_dir, name, host, port, proxy_type, crawler_type, description):
-    all_proxies[name] = {'host': host, 'port': port, 'type': proxy_type, 'description': description, 'crawler_type': crawler_type}
-    # create proxy file
-    proxy_dir = os.path.join(current_dir, 'dockers_proxies_profiles', name, 'etc/splash/proxy-profiles')
-    if not os.path.isdir(proxy_dir):
-        os.makedirs(proxy_dir)
-    proxy_file = os.path.join(proxy_dir, 'default.ini')
-    with open(proxy_file, 'w') as f:
-        f.write('[proxy]\n')
-        f.write('host={}\n'.format(host))
-        f.write('port={}\n'.format(port))
-        f.write('type={}\n'.format(proxy_type))
-
-def get_all_proxy_profiles():
-    return all_proxies
-
-def get_all_docker_proxy_ports():
-    return all_proxies_ports
-
-# # TODO: refactor me, remove deepcopy , performance
-def api_get_all_docker_proxy_ports():
-    all_docker_proxy_ports = deepcopy(all_proxies_ports)
-    for key in all_docker_proxy_ports:
-        all_docker_proxy_ports[key] = list(all_docker_proxy_ports[key])
-    return all_docker_proxy_ports
-
-def get_splash_proxy_by_port(port):
-    splash_id = get_splash_id_by_port(port)
-    if splash_id:
-        return docker_containers[splash_id]['proxy_name']
-
-def get_proxy_dict(proxy_name, show_proxy_setting=False):
-    proxy_dict = {'name': proxy_name}
-    if proxy_name != 'None':
-        proxy_dict['description'] = all_proxies[proxy_name]['description']
-        proxy_dict['crawler_type'] = all_proxies[proxy_name]['crawler_type']
-        if show_proxy_setting:
-            proxy_dict['host'] = all_proxies[proxy_name]['host']
-            proxy_dict['port'] = all_proxies[proxy_name]['port']
-        return proxy_dict
-
-def check_default_tor_proxy():
-    pass
-
-# # TODO: add check
-def api_add_proxy(proxy_name, host, port, proxy_type, crawler_type, description=None, edit=False):
-    proxies_profiles = os.path.join('config', 'proxies_profiles.cfg')
-    if not os.path.exists(proxies_profiles):
-        raise Exception('Config file: {}, not found'.format(proxies_profiles))
-    cfg = configparser.ConfigParser()
-    cfg.read(proxies_profiles)
-    if cfg.has_section(proxy_name) and not edit:
-        return ({'status': 'error', 'reason': f'This proxy already exist: {proxy_name}'}, 400)
-    else:
-        cfg.set(proxy_name, 'host', host)
-        cfg.set(proxy_name, 'port', port)
-        cfg.set(proxy_name, 'proxy_type', proxy_type)
-        if description:
-            cfg.set(proxy_name, 'description', description)
-        cfg.set(proxy_name, 'crawler_type', crawler_type)
-        with open(proxies_profiles, 'w') as configfile:
-            configfile.write(cfg)
-
-        res = {proxy_name:{'host': host, 'port': port, 'proxy_type': proxy_type, 'description': description, 'crawler_type': crawler_type}}
-        return (res, 200)
-
-def api_delete_proxy(proxy_name):
-    proxies_profiles = os.path.join('config', 'proxies_profiles.cfg')
-    if not os.path.exists(proxies_profiles):
-        raise Exception('Config file: {}, not found'.format(proxies_profiles))
-    cfg = configparser.ConfigParser()
-    cfg.read(proxies_profiles)
-    if not cfg.has_section(proxy_name):
-        return ({'status': 'error', 'reason': f'This proxy don\'t exist: {proxy_name}'}, 400)
-    else:
-        cfg.remove_section(proxy_name)
-        with open(proxies_profiles, 'w') as configfile:
-            configfile.write(cfg)
-        res = {'name': proxy_name}
-        return (res, 200)
-
-#### ---- ####
-
-def get_splash_id_by_port(port):
-    return map_port_docker_id.get(port, None)
-
-def get_containers_dict_by_name(splash_name):
-    containers_dict = {}
-    ports = list(all_containers_ports[splash_name])
-    containers_dict['ports'] = ports
-    containers_dict['description'] = get_splash_description_by_port(ports[0])
-    containers_dict['proxy'] = get_proxy_dict(get_splash_proxy_by_port(ports[0]))
-    return containers_dict
-
-def get_splash_description_by_port(port):
-    splash_id = get_splash_id_by_port(port)
-    if splash_id:
-        return docker_containers[splash_id].get('description', None)
-
-def get_all_docker_containers():
-    return all_docker_containers_ports
-
-def get_all_containers_name_ports():
-    all_containers_ports
-
-def api_get_all_containers_name_ports():
-    dict_containers_name = {}
-    for key in all_containers_ports:
-        dict_containers_name[key] = get_containers_dict_by_name(key)
-    return dict_containers_name
-
-# # TODO: add check
-# check if proxy exist
-def api_add_splash_docker(splash_name, proxy_name, port, cpu, memory, maxrss, description=None, edit=False):
-    containers_profiles = os.path.join('config', 'containers.cfg')
-    if not os.path.exists(containers_profiles):
-        raise Exception('Config file: {}, not found'.format(containers_profiles))
-    cfg = configparser.ConfigParser()
-    cfg.read(containers_profiles)
-    if cfg.has_section(splash_name) and not edit:
-        print('error, splash docker already exist')
-        return ({'status': 'error', 'reason': f'This Splash docker already exist: {splash_name}'}, 400)
-    else:
-        cfg.set(splash_name, 'proxy_name', proxy_name)
-        cfg.set(splash_name, 'port', port)
-        cfg.set(splash_name, 'cpu', cpu)
-        cfg.set(splash_name, 'memory', memory)
-        cfg.set(splash_name, 'maxrss', maxrss)
-        if description:
-            cfg.set(splash_name, 'description', description)
-        with open(containers_profiles, 'w') as configfile:
-            configfile.write(cfg)
-
-        res = {proxy_name:{'proxy_name': proxy_name, 'port': port, 'cpu': cpu, 'memory': memory, 'maxrss': maxrss, 'description':description}}
-        return (res, 200)
-
-def api_delete_splash_docker(splash_name):
-    containers_profiles = os.path.join('config', 'containers.cfg')
-    if not os.path.exists(containers_profiles):
-        raise Exception('Config file: {}, not found'.format(containers_profiles))
-    cfg = configparser.ConfigParser()
-    cfg.read(containers_profiles)
-    if not cfg.has_section(splash_name):
-        return ({'status': 'error', 'reason': f'This Splash docker don\'t exist: {splash_name}'}, 400)
-    else:
-        cfg.remove_section(splash_name)
-        with open(containers_profiles, 'w') as configfile:
-            configfile.write(cfg)
-        res = {'name': proxy_name}
-        return (res, 200)
-
-def launch_default_splash_dockers(proxy_dir):
-    proxies_profiles = os.path.join('config', 'containers.cfg')
-    if not os.path.exists(proxies_profiles):
-        raise Exception('Config file: {}, not found'.format(proxies_profiles))
-    cfg = configparser.ConfigParser()
-    cfg.read(proxies_profiles)
-    cfg_sections = cfg.sections()
-
-    for section in cfg_sections:
-        proxy_name = cfg.get(section, 'proxy_name')
-        description = cfg.get(section, 'description')
-        ports = cfg.get(section, 'port')
-        ports = ports.split('-')
-        if len(ports) > 1:
-            try:
-                start = int(ports[0])
-                stop = int(ports[1]) + 1
-                ports = range(start, stop)
-            except:
-                print('Error: launch_default splash, Invalid port number: {}'.format(ports))
-                continue
-        else:
-            try:
-                ports[0] = int(ports[0])
-            except:
-                print('Error: launch_default splash, Invalid port number: {}'.format(ports[0]))
-                continue
-
-        for port in ports:
-            if proxy_name not in get_all_proxy_profiles() and proxy_name != 'None':
-                print('Error: Unknow proxy, {}'.format(proxy_name))
-            else:
-                launch_docker(section, port, proxy_dir, proxy_name, description=description, cpu=1, memory=2, maxrss=2000)
-                #launch_docker(section, 8050, proxy_dir, proxy_name, description=description, cpu=1, memory=2, maxrss=2000)
-
+# # # # # # # # # # # # #
+# #     DOCKER CMD    # #
+# # # # # # # # # # # # #
 
 def get_docker_id_from_output(b_stdout):
     docker_id = b_stdout.decode()
@@ -240,6 +20,7 @@ def get_docker_id_from_output(b_stdout):
 def get_docker_short_id(container_id):
     return container_id[:12]
 
+# docker --help
 def check_docker_install():
     cmd = ['docker', '--help']
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -250,6 +31,7 @@ def check_docker_install():
     else:
         return True
 
+# docker ps
 def check_docker_permission():
     cmd = ['docker', 'ps']
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -258,6 +40,7 @@ def check_docker_permission():
     else:
         return True
 
+# docker ps | grep scrapinghub/splash
 def get_all_running_splash_docker():
     containers_id = []
     # get docker short id
@@ -275,7 +58,8 @@ def get_all_running_splash_docker():
                 containers_id.append(container_id)
     return containers_id
 
-def get_docker_port_cmd(container_id):
+# docker port <ID>
+def get_docker_port_cmd(container_id):     # # TODO:
     cmd = ['docker', 'port', container_id]
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.stderr:
@@ -285,6 +69,7 @@ def get_docker_port_cmd(container_id):
         container_port = container_port.replace('\n', '').rsplit(':')[1]
         print(container_port)
 
+# docker inspect -f '{{.NetworkSettings.Gateway}}' <ID>
 def get_docker_gateway(container_id):
     cmd = ["docker", "inspect", "-f", "'{{.NetworkSettings.Gateway}}'", container_id]
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -296,6 +81,7 @@ def get_docker_gateway(container_id):
         container_gateway = container_gateway.replace('\n', '').replace("'", "")
         return container_gateway
 
+# docker inspect -f '{{.HostConfig.Binds}}' <ID>
 def get_docker_binding(container_id):
     cmd = ["docker", "inspect", "-f", "'{{.HostConfig.Binds}}'", container_id]
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -331,6 +117,7 @@ def get_docker_mounted_binding(container_id):
     dict_docker_mounted_binding['destination'] = destination
     return dict_docker_mounted_binding
 
+# docker inspect <ID>
 def get_docker_state(container_id):
     cmd = ["docker", "inspect", container_id]
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -342,8 +129,12 @@ def get_docker_state(container_id):
         dict_docker = json.loads(dict_docker)[0]
         return dict_docker['State']
 
+# build cmd to launch a docker
+# docker run -d -p <PORT NUMBER>:8050 --restart=always --cpus=<NUMBER OF CPU>
+#           --memory=<MEMORY SIZE>G
+#           {-v <PROXY PROFILE LOCATION>:/etc/splash/proxy-profiles/ --net=bridge}
+#           scrapinghub/splash --maxrss <MAXRSS>
 def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss=3000):
-
     cmd = ['docker', 'run', '-d']
     # bind port number
     cmd.append('-p')
@@ -366,7 +157,8 @@ def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss
     cmd.append(str(maxrss))
     return cmd
 
-def launch_docker(container_name, port_number, proxy_dir, proxy_name, description=None, cpu=1, memory=2, maxrss=2000):
+# docker run
+def cmd_launch_docker(port_number, proxy_dir, proxy_name, cpu, memory, maxrss):
     cmd = build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=cpu, memory=memory, maxrss=maxrss)
     #print(cmd)
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -385,58 +177,10 @@ def launch_docker(container_name, port_number, proxy_dir, proxy_name, descriptio
     if p.stdout:
         new_docker_id = get_docker_id_from_output(p.stdout)
         new_docker_id = get_docker_short_id(new_docker_id)
-        docker_containers[new_docker_id] = {'port': port_number, 'proxy_name': proxy_name}
-        if description:
-            docker_containers[new_docker_id]['description'] = description
-        map_port_docker_id[port_number] = new_docker_id
-
-        # set proxy port
-        if proxy_name not in all_proxies_ports:
-            all_proxies_ports[proxy_name] = set()
-        all_proxies_ports[proxy_name].add(port_number)
-
-        # set container ports
-        if container_name not in all_containers_ports:
-            all_containers_ports[container_name] = set()
-        all_containers_ports[container_name].add(port_number)
-
-        map_port_container_name[port_number] = container_name
-
         return new_docker_id
 
-def kill_all_splash_dockers():
-    containers_id = get_all_running_splash_docker()
-    for container_id in containers_id:
-        kill_docker(container_id)
-
-def kill_docker(docker_id):
-    # # TODO: check if docker_id in list
-    cmd = ['docker', 'kill', docker_id]
-    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if p.stderr:
-        print(p.stderr)
-    else:
-        new_docker_id = get_docker_id_from_output(p.stdout)
-        if new_docker_id == docker_id:
-            print('docker {} killed'.format(new_docker_id))
-        else:
-            print('ERROR: docker relaunch, id change')
-            print(p.stdout.decode())
-
-        if docker_containers:
-            proxy_name = docker_containers[new_docker_id]['proxy_name']
-            docker_port = docker_containers[new_docker_id]['port']
-            container_name = map_port_container_name[docker_port]
-            docker_containers.pop(new_docker_id)
-            map_port_docker_id.pop(docker_port)
-
-            all_proxies_ports[proxy_name].remove(docker_port)
-            all_containers_ports[container_name].remove(docker_port)
-            map_port_container_name.remove(docker_port)
-
-        return new_docker_id
-
-def restart_docker(docker_id):
+# docker restart <ID>
+def cmd_restart_docker(docker_id): # # TODO: RENAME ME
     cmd = ['docker', 'restart', docker_id]
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.stderr:
@@ -449,14 +193,518 @@ def restart_docker(docker_id):
             print('ERROR: docker relaunch, id change')
         return new_docker_id
 
-def api_restart_docker(docker_port):
-    try:
-        docker_port = int(docker_port)
-    except Exception:
-        return ({'status': 'error', 'reason': f'Invalid port number: {docker_port}'}, 400)
-    docker_id = get_splash_id_by_port(docker_port)
-    docker_id = restart_docker(docker_id)
-    return ({'docker_id': docker_id, 'docker_port': docker_port}, 200)
+# docker kill <ID>
+def cmd_kill_docker(docker_id):
+    # # TODO: check if docker_id in list
+    cmd = ['docker', 'kill', docker_id]
+    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if p.stderr:
+        print(p.stderr)
+    else:
+        new_docker_id = get_docker_id_from_output(p.stdout)
+        if new_docker_id == docker_id:
+            print('docker {} killed'.format(new_docker_id))
+        else:
+            print('ERROR: docker relaunch, id change')
+            print(p.stdout.decode())
+        return new_docker_id
+
+# # # # # # # # # # # # #
+# # # # # # # # # # # # #
+# # # # # # # # # # # # #
+
+# # # # # # # # # # #
+# #     PROXY     # #
+# # # # # # # # # # #
+
+class Proxy(object):
+    """Proxy."""
+
+    def __init__(self, name, host, port, current_dir, proxy_type, crawler_type, description=None):
+        self.name = name
+        self.host = host
+        self.port = port
+        self.proxy_dir = os.path.join(current_dir, 'dockers_proxies_profiles', self.name)
+        self.proxy_type = proxy_type
+        self.description = description
+        self.crawler_type = crawler_type
+        self.splash_dockers = {}
+
+    def get_name(self):
+        return self.name
+
+    def get_description(self):
+        return self.description
+
+    def get_proxy_dir(self):
+        return self.proxy_dir
+
+    def get_crawler_type(self):
+        return self.crawler_type
+
+    def get_all_containers_name(self):
+        return self.splash_dockers.keys()
+
+    def get_splash_container_by_name(self, name):
+        return self.splash_dockers[container_name]
+
+    def to_dict(self, proxy_setting=False):
+        proxy_dict = {'name': self.get_name()}
+        if self.name != 'None':
+            proxy_dict['description'] = self.get_description()
+            proxy_dict['crawler_type'] = self.crawler_type
+            if proxy_setting:
+                proxy_dict['host'] = self.host
+                proxy_dict['port'] = self.port
+                proxy_dict['type'] = self.proxy_type
+        return proxy_dict
+
+    def add_splash_docker(self, container_obj):
+        self.splash_dockers[container_obj.get_name()] = container_obj
+
+    def remove_splash_docker(self, container_obj):
+        self.splash_dockers.remove(container_obj.get_name())
+
+    def delete_proxy(self):
+        for container_name in self.get_all_containers_name():
+            res = self.splash_dockers[container_name].delete_container()
+
+        # # TODO: DELETE FILE
+
+#### API ####
+
+# # TODO: add check
+def api_add_proxy(proxy_name, host, port, proxy_type, crawler_type, description=None, edit=False): ################################
+    proxies_profiles = os.path.join('config', 'proxies_profiles.cfg')
+    if not os.path.exists(proxies_profiles):
+        raise Exception('Config file: {}, not found'.format(proxies_profiles))
+    cfg = configparser.ConfigParser()
+    cfg.read(proxies_profiles)
+    if cfg.has_section(proxy_name) and not edit:
+        return ({'status': 'error', 'reason': f'This proxy already exist: {proxy_name}'}, 400)
+    else:
+        cfg.set(proxy_name, 'host', host)
+        cfg.set(proxy_name, 'port', port)
+        cfg.set(proxy_name, 'proxy_type', proxy_type)
+        if description:
+            cfg.set(proxy_name, 'description', description)
+        cfg.set(proxy_name, 'crawler_type', crawler_type)
+        with open(proxies_profiles, 'w') as configfile:
+            configfile.write(cfg)
+
+        create_proxy(proxy_name, host, port, proxy_type, crawler_type, description)
+
+        res = {proxy_name:{'host': host, 'port': port, 'proxy_type': proxy_type, 'description': description, 'crawler_type': crawler_type}}
+        return (res, 200)
+
+# # TODO: KILL DOCKER
+def api_delete_proxy(proxy_name): ################################
+    proxies_profiles = os.path.join('config', 'proxies_profiles.cfg')
+    if not os.path.exists(proxies_profiles):
+        raise Exception('Config file: {}, not found'.format(proxies_profiles))
+    cfg = configparser.ConfigParser()
+    cfg.read(proxies_profiles)
+    if not cfg.has_section(proxy_name):
+        return ({'status': 'error', 'reason': f'This proxy don\'t exist: {proxy_name}'}, 400)
+    else:
+        cfg.remove_section(proxy_name)
+        with open(proxies_profiles, 'w') as configfile:
+            configfile.write(cfg)
+
+        # # TODO: KILL DOCKER
+        del all_proxxiess[proxy_name]
+
+        res = {'name': proxy_name}
+        return (res, 200)
+
+#### ---- ####
+
+# # # # # # # # # # #
+# #     SPLASH    # #
+# # # # # # # # # # #
+
+class SplashContainer(object):
+    """SplashContainer."""
+
+    def __init__(self, name, proxy, cpu, memory, maxrss, description=None): # proxy name?
+        self.name = name
+        self.description = description
+        self.proxy = proxy
+        self.cpu = cpu
+        self.memory = memory
+        self.maxrss = maxrss
+        self.splash = {}
+
+    def get_name(self):
+        return self.name
+
+    def get_description(self):
+        return self.description
+
+    def get_cpu_limit(self):
+        return self.cpu
+
+    def get_memory_limit(self):
+        return self.memory
+
+    def get_maxrss(self):
+        return self.maxrss
+
+    def get_all_ports(self): # # TODO: TEST ME
+        return self.splash.keys()
+
+    def get_proxy_name(self):
+        return self.proxy.get_name()
+
+    def get_proxy_dir(self):
+        return self.proxy.get_proxy_dir()
+
+    def get_all_splash(self):
+        return self.splash
+
+    def get_splash_by_port(self, port):
+        return self.splash[port]
+
+    def launch_splash(self, port): # CREATE SPLASH OBJECT
+        new_docker_id = cmd_launch_docker(port, self.get_proxy_dir(), self.get_proxy_name(), self.cpu, self.memory, self.maxrss)
+        # New Docker Launched
+        if new_docker_id:
+            self.splash[port] = Splash(new_docker_id, port, self)
+        else: # # TODO: LOGS ERROR
+            print('ERROR: Splash not launched')
+
+    def remove_splash(self, port): # REMOVE + KILL SPLASH OBJECT
+        docker_id = get_splash_by_port(self, port).kill()
+        if docker_id:
+            self.proxy.remove(port)
+        return docker_id
+
+    def delete_container(self):
+        for port in self.get_all_ports():
+            docker_id = get_splash_by_port(self, port).kill()
+            if docker_id:
+                break
+        if not self.splash:
+            self.proxy.remove_container()
+            return True
+        return False
+
+        # # TODO: DELETE FILE
+
+    def to_dict(self, proxy=False): # # TODO: GET SPLASH DICT (PORT + ID) ????
+        dict_container = {}
+        dict_container['name'] = self.get_name()
+        dict_container['description'] = self.get_description()
+        dict_container['cpu'] = self.get_cpu_limit()
+        dict_container['memory'] = self.get_memory_limit()
+        dict_container['maxrss'] = self.get_maxrss()
+        #dict_container['proxy'] = self.proxy # # TODO: TO DICT ## CHECK FIELD TO RETURN
+        dict_container['ports'] = list(self.get_all_ports())
+        if proxy:
+            dict_container['proxy'] = {}
+            dict_container['proxy']['name'] = self.proxy.get_name()
+            dict_container['proxy']['crawler_type'] = self.proxy.get_crawler_type()
+        return dict_container
+
+class Splash(object):
+    """Splash."""
+
+    def __init__(self, container_id, port, splash_container):
+        self.splash_container = splash_container
+        self.id = container_id
+        self.port = port
+
+    def get_id(self):
+        return self.id
+
+    def get_name(self):
+        return self.splash_container.get_name()
+
+    def get_description(self):
+        return self.splash_container.get_description()
+
+    def get_name(self):
+        return self.splash_container.get_name()
+
+    def get_proxy_dir(self):
+        return self.splash_container.get_proxy_dir()
+
+    def get_proxy_name(self):
+        return self.splash_container.get_proxy_name()
+
+    def get_cpu_limit(self):
+        return self.splash_container.get_cpu_limit()
+
+    def get_memory_limit(self):
+        return self.splash_container.get_memory_limit()
+
+    def get_maxrss(self):
+        return self.splash_container.get_maxrss()
+
+    def kill(self):
+        docker_id = cmd_kill_docker(self.id)
+        return docker_id
+
+    def restart(self, soft=True):
+        if soft:
+            docker_id = cmd_restart_docker(self.id)
+        else:
+            docker_id = cmd_kill_docker(self.id)
+            if docker_id:
+                new_docker_id = cmd_launch_docker(self.port, self.get_proxy_dir(), self.get_proxy_name(),
+                                                    self.get_cpu_limit(), self.get_memory_limit(), self.get_maxrss())
+                if new_docker_id:
+                    self.id = new_docker_id
+        return self.id
+
+######################################################
+######################################################
+
+# # TODO: add check
+# check if proxy exist
+def api_add_splash_docker(splash_name, proxy_name, port, cpu, memory, maxrss, description=None, edit=False):
+    containers_profiles = os.path.join('config', 'containers.cfg')
+    if not os.path.exists(containers_profiles):
+        raise Exception('Config file: {}, not found'.format(containers_profiles))
+    cfg = configparser.ConfigParser()
+    cfg.read(containers_profiles)
+    if cfg.has_section(splash_name) and not edit:
+        print('error, splash docker already exist')
+        return ({'status': 'error', 'reason': f'This Splash docker already exist: {splash_name}'}, 400)
+    else:
+        cfg.set(splash_name, 'proxy_name', proxy_name)
+        cfg.set(splash_name, 'port', port)
+        cfg.set(splash_name, 'cpu', cpu)
+        cfg.set(splash_name, 'memory', memory)
+        cfg.set(splash_name, 'maxrss', maxrss)
+        if description:
+            cfg.set(splash_name, 'description', description)
+        with open(containers_profiles, 'w') as configfile:
+            configfile.write(cfg)
+
+        # # TODO: LAUNCH DOCKER
+
+        res = {proxy_name:{'proxy_name': proxy_name, 'port': port, 'cpu': cpu, 'memory': memory, 'maxrss': maxrss, 'description':description}}
+        return (res, 200)
+
+def api_delete_splash_docker(splash_name):
+    containers_profiles = os.path.join('config', 'containers.cfg')
+    if not os.path.exists(containers_profiles):
+        raise Exception('Config file: {}, not found'.format(containers_profiles))
+    cfg = configparser.ConfigParser()
+    cfg.read(containers_profiles)
+    if not cfg.has_section(splash_name):
+        return ({'status': 'error', 'reason': f'This Splash docker don\'t exist: {splash_name}'}, 400)
+    else:
+        cfg.remove_section(splash_name)
+        with open(containers_profiles, 'w') as configfile:
+            configfile.write(cfg)
+
+        # # TODO: KILL DOCKER
+
+        res = {'name': proxy_name}
+        return (res, 200)
+
+# # # # # # # # # # # # # # # # #
+# # - - - -    CORE   - - - - # #
+# # # # # # # # # # # # # # # # #
+
+class SplashManager(object):
+    """docstring for SplashManager."""
+
+    def __init__(self):
+        # # TODO: use me + add in config
+        #CPU_LIMIT = 4
+        #MEMORY_LIMIT = 8 # RAM LIMIT (Go)
+
+        self.current_dir = os.path.dirname(os.path.realpath(__file__))
+
+        self.all_proxies = {}
+        self.all_splash_containers = {}
+
+        # used by AIL, check if proxy or splash are edited
+        self.session_uuid = str(uuid4())
+        self.version = 'v0.1'
+
+        # LAUNCH SPLASH DOCKERS #
+        print('Lauching all Splash dockers ...')
+        print()
+        if not check_docker_install():
+            print('Error: docker install')
+            sys.exit(0)
+        if not check_docker_permission():
+            print('Error: permission denied, please run this script with sudo (docker containers)\n')
+            sys.exit(0)
+
+        self.kill_all_splash_dockers()
+        self.load_all_proxies_profiles()
+        self.launch_all_splash_dockers()
+
+    def get_session_uuid(self):
+        return self.session_uuid
+
+    def get_version(self):
+        return self.version
+
+    # #     PROXY     # #
+
+    def get_all_proxies_name(self):
+        return self.all_proxies.keys()
+
+    def get_proxy_by_name(self, proxy_name):
+        return self.all_proxies[proxy_name]
+
+    def get_all_proxies_dict(self):
+        proxies_dict = {}
+        for proxy_name in self.get_all_proxies_name():
+            proxies_dict[proxy_name] = self.get_proxy_by_name(proxy_name).to_dict(proxy_setting=True)
+        return proxies_dict
+
+    # ADD a new proxy in memory and in config file
+    # # TODO: use os.path.realpath()
+    def create_proxy(self, proxy_name, host, port, proxy_type, crawler_type, description):
+        self.all_proxies[proxy_name] = Proxy(proxy_name, host, port, self.current_dir, proxy_type, crawler_type, description=description)
+        # create proxy profile
+        proxy_dir = os.path.join(self.current_dir, 'dockers_proxies_profiles', proxy_name, 'etc/splash/proxy-profiles')
+        if not os.path.isdir(proxy_dir):
+            os.makedirs(proxy_dir)
+        proxy_file = os.path.join(proxy_dir, 'default.ini')
+        with open(proxy_file, 'w') as f:
+            f.write('[proxy]\n')
+            f.write('host={}\n'.format(host))
+            f.write('port={}\n'.format(port))
+            f.write('type={}\n'.format(proxy_type))
+
+    def load_all_proxies_profiles(self):
+        # clear docker proxies dir
+        for root, dirs, files in os.walk(os.path.join(self.current_dir, 'dockers_proxies_profiles'), topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+
+        proxies_profiles = os.path.join('config', 'proxies_profiles.cfg')
+        if not os.path.exists(proxies_profiles):
+            raise Exception('Config file: {}, not found'.format(proxies_profiles))
+        cfg = configparser.ConfigParser()
+        cfg.read(proxies_profiles)
+        cfg_sections = cfg.sections()
+
+        for section in cfg_sections:
+            proxy_name = section
+            proxy_name = proxy_name.replace('/', '')
+            proxy_description = cfg.get(section, 'description')
+            proxy_host = cfg.get(section, 'host')
+            proxy_port = cfg.get(section, 'port')
+            proxy_type = cfg.get(section, 'type')
+            crawler_type = cfg.get(section, 'crawler_type')
+            self.create_proxy(proxy_name, proxy_host, proxy_port, proxy_type, crawler_type, proxy_description)
+
+    # #     SPLASH     # #
+
+    def get_all_splash_container_names(self):
+        return self.all_splash_containers.keys()
+
+    def get_splash_container_by_name(self, container_name):
+        return self.all_splash_containers[container_name]
+
+    def get_all_splash_container_dict(self):
+        dict_all_splash_container = {}
+        for container_name in self.get_all_splash_container_names():
+            dict_all_splash_container[container_name] = self.get_splash_container_by_name(container_name).to_dict(proxy=True)
+        return dict_all_splash_container
+
+    def get_all_splash(self):
+        l_splash = []
+        for container_name in self.get_all_splash_container_names():
+            l_splash.append(self.get_splash_container_by_name(container_name).get_all_splash())
+        return l_splash
+
+    def launch_splash(self, container_name, port):
+        self.get_splash_container_by_name(container_name).launch_splash(port)
+
+    def add_splash_container(self, name, proxy_name, cpu, memory, maxrss, description=None):
+        proxy = self.get_proxy_by_name(proxy_name)
+        self.all_splash_containers[name] = SplashContainer(name, proxy, cpu, memory, maxrss, description=description)
+
+    def remove_splash_container(self, container_name):
+        pass # # TODO: 
+
+    def launch_all_splash_dockers(self):
+        proxies_profiles = os.path.join('config', 'containers.cfg')
+        if not os.path.exists(proxies_profiles):
+            raise Exception('Config file: {}, not found'.format(proxies_profiles))
+        cfg = configparser.ConfigParser()
+        cfg.read(proxies_profiles)
+        cfg_sections = cfg.sections()
+
+        for container_name in cfg_sections:
+            proxy_name = cfg.get(container_name, 'proxy_name')
+            description = cfg.get(container_name, 'description')
+            cpu = cfg.getint(container_name, 'cpu')
+            memory = cfg.getint(container_name, 'memory')
+            maxrss = cfg.getint(container_name, 'maxrss')
+            ports = cfg.get(container_name, 'port')
+            ports = ports.split('-')
+            if len(ports) > 1:
+                try:
+                    start = int(ports[0])
+                    stop = int(ports[1]) + 1
+                    ports = range(start, stop)
+                except:
+                    print('Error: launch_default splash, Invalid port number: {}'.format(ports))
+                    continue
+            else:
+                try:
+                    ports[0] = int(ports[0])
+                except:
+                    print('Error: launch_default splash, Invalid port number: {}'.format(ports[0]))
+                    continue
+
+            self.add_splash_container(container_name, proxy_name, cpu, memory, maxrss, description=description)
+            for port in ports:
+                if proxy_name not in self.get_all_proxies_name() and proxy_name != 'None': # # TODO: add me in launch_splash?
+                    print('Error: Unknow proxy, {}'.format(proxy_name)) # # TODO: handle error
+                else:
+                    self.launch_splash(container_name, port)
+
+    def restart_docker(self, splash_name, port, soft=True):
+        splash = self.get_splash_container_by_name(splash_name).get_splash_by_port(port)
+        docker_id = splash.restart(soft=soft)
+        return docker_id
+
+    def api_restart_docker(self, port, splash_name, soft=True):
+        try:
+            port = int(port)
+        except Exception:
+            return ({'status': 'error', 'reason': f'Invalid port number: {port}'}, 400)
+
+        # check if container exist
+        #if splash_name:
+        if not self.get_splash_container_by_name(splash_name):
+            return ({'status': 'error', 'reason': f'Unknow Splash Container Name: {splash_name}'}, 400)
+        #else:
+            # # TODO: search port
+        #    pass
+        # check if port exist
+        if not self.get_splash_container_by_name(splash_name).get_splash_by_port(port):
+            return ({'status': 'error', 'reason': f'Port not found: {port}'}, 400)
+
+        docker_id = self.restart_docker(splash_name, port, soft=soft)
+        return ({'docker_id': docker_id, 'port': port, 'name': splash_name}, 200)
+
+    # def kill_docker(docker_id):
+
+    def kill_all_splash_dockers(self):
+        containers_id = get_all_running_splash_docker()
+        for container_id in containers_id:
+            cmd_kill_docker(container_id)
+
+# # # # # # # # # # # # # #
+#                         #
+#   API SPLASH CRAWLER    #
+#                         #
+# # # # # # # # # # # # # #
 
 def api_kill_docker(docker_port):
     try:
@@ -466,30 +714,6 @@ def api_kill_docker(docker_port):
     docker_id = get_splash_id_by_port(docker_port)
     docker_id = kill_docker(container_id)
     return ({'docker_id': docker_id, 'docker_port': docker_port}, 200)
-
-def launch_init():
-    print('Lauching all Splash dockers ...')
-    print()
-
-    if not check_docker_install():
-        print('Error: docker install')
-        sys.exit(0)
-    if not check_docker_permission():
-        print('Error: permission denied, please run this script with sudo (docker containers)\n')
-        sys.exit(0)
-
-    current_dir = os.path.dirname(os.path.realpath(__file__))
-    proxy_dir = os.path.join(current_dir, 'dockers_proxies_profiles')
-
-    kill_all_splash_dockers()
-    load_default_proxies_profiles(current_dir)
-    launch_default_splash_dockers(proxy_dir)
-
-    print(docker_containers)
-    print(all_proxies)
-    print(all_proxies_ports)
-    print(all_containers_ports)
-    print(map_port_docker_id)
 
 # # # # # # # # # # # # # #
 #                         #
@@ -553,7 +777,12 @@ def test_splash_docker(container_id):
 # # # # #  ------ # # # # #
 
 if __name__ == '__main__':
-    container_id = '09d64a7d152e'
+    splashManager = SplashManager()
+    print(splashManager.get_all_proxies_name())
+    print(splashManager.get_all_splash_container_names())
+    print(splashManager.get_all_splash())
+
+    #container_id = '09d64a7d152e'
     #container_id = '294f7089f41e'
 
     #get_docker_state(container_id)
@@ -561,5 +790,5 @@ if __name__ == '__main__':
     #print(get_docker_binding(container_id))
     #print(get_docker_mounted_binding(container_id))
 
-    res = test_splash_docker(container_id)
-    print(res)
+    #res = test_splash_docker(container_id)
+    #print(res)

@@ -8,17 +8,13 @@
 import os
 import re
 import sys
-import uuid
 import json
 
 from flask import Flask, render_template, jsonify, request, Blueprint, redirect, url_for, Response
 from functools import wraps
 
 import splash_manager
-splash_manager.launch_init()
-
-# used by AIL, check if proxy or splash are edited
-session_uuid = str(uuid.uuid4())
+Splash_Manager = splash_manager.SplashManager()
 
 # ============ VARIABLES ============
 api = Blueprint('api', __name__, template_folder='templates')
@@ -69,7 +65,7 @@ def verify_user_role(role, token):
     else:
         return False
 
-def is_in_role(token, role):
+def is_in_role(token, role):  # # TODO: FIXME
     return True
     # if r_serv_db.sismember('user_role:{}'.format(role), user_id):
     #     return True
@@ -155,31 +151,24 @@ def ping():
 @api.route("api/v1/version", methods=['GET'])
 @token_required('admin')
 def get_version():
-    return Response(json.dumps({'message':'v0.1'}, indent=2, sort_keys=True), mimetype='application/json'), 200
+    return Response(json.dumps({'message': Splash_Manager.get_version()}, indent=2, sort_keys=True), mimetype='application/json'), 200
 
 @api.route("api/v1/get/session_uuid", methods=['GET'])
 @token_required('admin')
 def get_session_uuid():
-    return Response(json.dumps({'session_uuid':session_uuid}, indent=2, sort_keys=True), mimetype='application/json'), 200
+    return Response(json.dumps({'session_uuid': Splash_Manager.get_session_uuid()}, indent=2, sort_keys=True), mimetype='application/json'), 200
 
 @api.route("api/v1/get/proxies/all", methods=['GET'])
 @token_required('admin')
 def get_proxies_all():
-    res = splash_manager.get_all_proxy_profiles()
+    res = Splash_Manager.get_all_proxies_dict()
     return Response(json.dumps(res, indent=2, sort_keys=True), mimetype='application/json'), 200
 
 # get splash by container name
-@api.route("api/v1/get/splash/name/all", methods=['GET'])
+@api.route("api/v1/get/splash/all", methods=['GET'])
 @token_required('admin')
 def get_splash_all():
-    res = splash_manager.api_get_all_containers_name_ports()
-    return Response(json.dumps(res, indent=2, sort_keys=True), mimetype='application/json'), 200
-
-# get splash by proxy
-@api.route("api/v1/get/splash/proxy/all", methods=['GET'])
-@token_required('admin')
-def get_splash_all_proxy():
-    res = splash_manager.api_get_all_docker_proxy_ports()
+    res = Splash_Manager.get_all_splash_container_dict()
     return Response(json.dumps(res, indent=2, sort_keys=True), mimetype='application/json'), 200
 
 # restart splash container
@@ -187,100 +176,101 @@ def get_splash_all_proxy():
 @token_required('admin')
 def restart_splash():
     data = request.get_json()
-    docker_port = data.get('docker_port', None)
-    res = splash_manager.api_restart_docker(docker_port)
+    port = data.get('port', None)
+    splash_name = data.get('name', None)
+    res = Splash_Manager.api_restart_docker(port, splash_name, soft=False) # # TODO: soft in config
     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 # API - launch docker
 # launch splash container
 
 # kill splash container
-@api.route("api/v1/splash/kill", methods=['POST'])
-@token_required('admin')
-def kill_splash():
-    data = request.get_json()
-    docker_port = data.get('docker_port', None)
-    res = splash_manager.api_kill_docker(docker_port)
-    return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
+# @api.route("api/v1/splash/kill", methods=['POST'])
+# @token_required('admin')
+# def kill_splash():
+#     data = request.get_json()
+#     docker_port = data.get('docker_port', None)
+#     res = splash_manager.api_kill_docker(docker_port)
+#     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 
 # add proxy
-@api.route("api/v1/proxy/add", methods=['POST'])
-@token_required('admin')
-def add_proxy():
-    data = request.get_json()
-    name = data.get('name', None)
-    host = data.get('host', None)
-    port = data.get('port', None)
-    type = data.get('type', None)
-    crawler_type = data.get('crawler_type', None)
-    description = data.get('crawler_type', description)
-    res = splash_manager.api_add_proxy(proxy_name, host, port, proxy_type, crawler_type, description=None)
-    return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
+# @api.route("api/v1/proxy/add", methods=['POST'])
+# @token_required('admin')
+# def add_proxy():
+#     data = request.get_json()
+#     name = data.get('name', None)
+#     host = data.get('host', None)
+#     port = data.get('port', None)
+#     type = data.get('type', None)
+#     crawler_type = data.get('crawler_type', None)
+#     description = data.get('crawler_type', description)
+#     res = splash_manager.api_add_proxy(proxy_name, host, port, proxy_type, crawler_type, description=None)
+#     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 # add proxy
-@api.route("api/v1/proxy/edit", methods=['POST'])
-@token_required('admin')
-def edit_proxy():
-    data = request.get_json()
-    name = data.get('name', None)
-    host = data.get('host', None)
-    port = data.get('port', None)
-    type = data.get('type', None)
-    crawler_type = data.get('crawler_type', None)
-    description = data.get('crawler_type', description)
-    res = splash_manager.api_add_proxy(proxy_name, host, port, proxy_type, crawler_type, description=None, edit=True)
-    return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
+# @api.route("api/v1/proxy/edit", methods=['POST'])
+# @token_required('admin')
+# def edit_proxy():
+#     data = request.get_json()
+#     name = data.get('name', None)
+#     host = data.get('host', None)
+#     port = data.get('port', None)
+#     type = data.get('type', None)
+#     crawler_type = data.get('crawler_type', None)
+#     description = data.get('crawler_type', description)
+#     res = splash_manager.api_add_proxy(proxy_name, host, port, proxy_type, crawler_type, description=None, edit=True)
+#     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 # delete proxy
-@api.route("api/v1/proxy/delete", methods=['POST'])
-@token_required('admin')
-def delete_proxy():
-    data = request.get_json()
-    name = data.get('name', None)
-    res = splash_manager.api_delete_proxy(proxy_name)
-    return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
+# @api.route("api/v1/proxy/delete", methods=['POST'])
+# @token_required('admin')
+# def delete_proxy():
+#     data = request.get_json()
+#     name = data.get('name', None)
+#     res = splash_manager.api_delete_proxy(proxy_name)
+#     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 ############################
 
 # add splash docker
-@api.route("api/v1/splash/add", methods=['POST'])
-@token_required('admin')
-def add_splash():
-    data = request.get_json()
-    splash_name = data.get('name', None)
-    proxy_name = data.get('proxy_name', None)
-    port = data.get('port', None)
-    cpu = data.get('type', cpu)
-    memory = data.get('memory', None)
-    maxrss = data.get('maxrss', None)
-    description = data.get('crawler_type', description)
-    res = splash_manager.api_add_splash_docker(splash_name, proxy_name, port, cpu, memory, maxrss, description=description)
-    return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
+# @api.route("api/v1/splash/add", methods=['POST'])
+# @token_required('admin')
+# def add_splash():
+#     data = request.get_json()
+#     splash_name = data.get('name', None)
+#     proxy_name = data.get('proxy_name', None)
+#     port = data.get('port', None)
+#     cpu = data.get('type', cpu)
+#     memory = data.get('memory', None)
+#     maxrss = data.get('maxrss', None)
+#     description = data.get('crawler_type', description)
+#     res = splash_manager.api_add_splash_docker(splash_name, proxy_name, port, cpu, memory, maxrss, description=description)
+#     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 # edit splash docker
-@api.route("api/v1/splash/edit", methods=['POST'])
-@token_required('admin')
-def edit_splash():
-    data = request.get_json()
-    splash_name = data.get('name', None)
-    proxy_name = data.get('proxy_name', None)
-    port = data.get('port', None)
-    cpu = data.get('type', cpu)
-    memory = data.get('memory', None)
-    maxrss = data.get('maxrss', None)
-    description = data.get('crawler_type', description)
-    res = splash_manager.api_add_splash_docker(splash_name, proxy_name, port, cpu, memory, maxrss, description=description, edit=True)
-    return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
+# @api.route("api/v1/splash/edit", methods=['POST'])
+# @token_required('admin')
+# def edit_splash():
+#     data = request.get_json()
+#     splash_name = data.get('name', None)
+#     proxy_name = data.get('proxy_name', None)
+#     port = data.get('port', None)
+#     cpu = data.get('type', cpu)
+#     memory = data.get('memory', None)
+#     maxrss = data.get('maxrss', None)
+#     description = data.get('crawler_type', description)
+#     res = splash_manager.api_add_splash_docker(splash_name, proxy_name, port, cpu, memory, maxrss, description=description, edit=True)
+#     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 # delete splash docker
-@api.route("api/v1/splash/delete", methods=['POST'])
-@token_required('admin')
-def delete_splash():
-    data = request.get_json()
-    name = data.get('name', None)
-    res = splash_manager.api_delete_splash_docker(proxy_name)
-    return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
+# @api.route("api/v1/splash/delete", methods=['POST'])
+# @token_required('admin')
+# def delete_splash():
+#     data = request.get_json()
+#     name = data.get('name', None)
+#     res = splash_manager.api_delete_splash_docker(proxy_name)
+#     return Response(json.dumps(res[0], indent=2, sort_keys=True), mimetype='application/json'), res[1]
 
 # # TODO:
 
