@@ -11,6 +11,15 @@ sudo apt-get install python3-pip virtualenv python3-dev python3-tk libfreetype6-
 #default tor install
 sudo apt-get install tor -qq
 
+# install docker
+sudo apt install docker.io;
+
+# pull splah docker
+sudo docker pull scrapinghub/splash;
+
+# Default tor configuration
+./configure_tor.sh
+
 git pull
 
 #configs files
