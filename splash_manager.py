@@ -146,7 +146,7 @@ def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss
     cmd.append('--memory={}G'.format(memory))
     # proxy binding
     if proxy_name and proxy_name != 'None':
-        proxy_profile_dir = os.path.join(proxy_dir, proxy_name, 'etc/splash/proxy-profiles')
+        proxy_profile_dir = os.path.join(proxy_dir, 'etc/splash/proxy-profiles')
         cmd.append('-v')
         cmd.append('{}:/etc/splash/proxy-profiles/'.format(proxy_profile_dir))
         cmd.append('--net=bridge')
@@ -270,6 +270,9 @@ class Proxy(object):
             res = self.splash_dockers[container_name].delete_container()
 
         # # TODO: DELETE FILE
+
+    def test_proxy(self):
+        pass
 
 #### API ####
 
@@ -600,6 +603,11 @@ class SplashManager(object):
             crawler_type = cfg.get(section, 'crawler_type')
             self.create_proxy(proxy_name, proxy_host, proxy_port, proxy_type, crawler_type, proxy_description)
 
+    def test_all_proxies(self):
+        for poxy_name in self.all_proxies:
+            print(poxy_name)
+            res = self.get_proxy_by_name(poxy_name).test_proxy()
+
     # #     SPLASH     # #
 
     def get_all_splash_container_names(self):
@@ -628,7 +636,7 @@ class SplashManager(object):
         self.all_splash_containers[name] = SplashContainer(name, proxy, cpu, memory, maxrss, description=description)
 
     def remove_splash_container(self, container_name):
-        pass # # TODO: 
+        pass # # TODO:
 
     def launch_all_splash_dockers(self):
         proxies_profiles = os.path.join('config', 'containers.cfg')
@@ -792,3 +800,5 @@ if __name__ == '__main__':
 
     #res = test_splash_docker(container_id)
     #print(res)
+
+    splashManager.test_all_proxies()
