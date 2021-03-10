@@ -1,4 +1,4 @@
-# proxy_name: proxy name (defined in proxies_profiles.cfg), don't use any if proxy_name=None
+# proxy_name: proxy name (defined in proxies_profiles.cfg)
 # port: single port or port range (ex: 8050 or 8050-8052)
 # cpu: max number of cpu allocated
 # memory: RAM (G) allocated
@@ -11,18 +11,4 @@ cpu=1
 memory=1
 maxrss=2000
 description= default splash tor
-
-# proxy_name: proxy name (defined in proxies_profiles.cfg)
-# port: single port or port range (ex: 8050 or 8050-8052)
-# cpu: max number of cpu allocated
-# memory: RAM (G) allocated
-# maxrss: max unbound in-memory cache (Mb, Restart Splash when full)
-# description: docker description
-#[default_splash]
-#proxy_name=None
-#port=8053
-#cpu=1 
-#memory=2
-#maxrss=2000
-#description=do not use any proxy
 

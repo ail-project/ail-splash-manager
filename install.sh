@@ -31,8 +31,8 @@ if [ ! -f config/proxies_profiles.cfg ]; then
 fi
 
 
-pip3 install -U pip
-pip3 install -U -r requirements.txt
+sudo pip3 install -U pip
+sudo pip3 install -U -r requirements.txt
 
 pushd gen_cert
 ./gen_root.sh
