@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*-coding:UTF-8 -*
 
+import argparse
 import os
 import configparser
 import json
@@ -512,6 +513,11 @@ def api_delete_splash_docker(splash_name):
 # # - - - -    CORE   - - - - # #
 # # # # # # # # # # # # # # # # #
 
+def kill_all_splash_dockers():
+    containers_id = get_all_running_splash_docker()
+    for container_id in containers_id:
+        cmd_kill_docker(container_id)
+
 class SplashManager(object):
     """docstring for SplashManager."""
 
@@ -704,9 +710,7 @@ class SplashManager(object):
     # def kill_docker(docker_id):
 
     def kill_all_splash_dockers(self):
-        containers_id = get_all_running_splash_docker()
-        for container_id in containers_id:
-            cmd_kill_docker(container_id)
+        kill_all_splash_dockers()
 
 # # # # # # # # # # # # # #
 #                         #
@@ -783,12 +787,23 @@ def test_splash_docker(container_id):
     return True
 
 # # # # #  ------ # # # # #
-
 if __name__ == '__main__':
-    splashManager = SplashManager()
-    print(splashManager.get_all_proxies_name())
-    print(splashManager.get_all_splash_container_names())
-    print(splashManager.get_all_splash())
+    parser = argparse.ArgumentParser(description='Splash Manager Helper')
+    parser.add_argument('-k', '--kill', help='Kill all Splash dockers', action="store_true", default=False)
+    args = parser.parse_args()
+
+    if not args.kill:
+        parser.print_help()
+        sys.exit(0)
+
+    if args.kill:
+        kill_all_splash_dockers()
+
+    ## DEBUG:
+    #splashManager = SplashManager()
+    #print(splashManager.get_all_proxies_name())
+    #print(splashManager.get_all_splash_container_names())
+    #print(splashManager.get_all_splash())
 
     #container_id = '09d64a7d152e'
     #container_id = '294f7089f41e'
@@ -801,4 +816,4 @@ if __name__ == '__main__':
     #res = test_splash_docker(container_id)
     #print(res)
 
-    splashManager.test_all_proxies()
+    #splashManager.test_all_proxies()
