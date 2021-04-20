@@ -15,3 +15,10 @@ description=tor default proxy
 # crawler type (tor or web)
 crawler_type=tor
 
+# SQUID proxy
+#[web_proxy]
+#host=172.17.0.1
+#port=3128
+#type=HTTP
+#description=web proxy
+#crawler_type=web

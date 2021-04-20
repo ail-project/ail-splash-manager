@@ -12,3 +12,13 @@ memory=1
 maxrss=2000
 description= default splash tor
 
+# Splash with SQUID proxy
+#[web_splash]
+#proxy_name=web_proxy
+#port=8060
+#cpu=1
+#memory=1
+#maxrss=2000
+#description= web splash
+
+

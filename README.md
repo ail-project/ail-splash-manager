@@ -15,6 +15,18 @@ cd ail-splash-manager
 ./install.sh
 ```
 
+Usage
+------------
+
+#### Launching AIL Splash Manager
+```bash
+./launch.sh -l
+```
+#### killing AIL Splash Manager and all Splash dockers
+```bash
+./launch.sh -k
+```
+
 Tor proxy
 ------------
 
@@ -26,7 +38,7 @@ The tor proxy from the Ubuntu package is installed by default.
 
 **/!\ Install the tor proxy provided by The [torproject](https://2019.www.torproject.org/docs/debian) to solve this issue./!\**
 
-*Note: Ubuntu Install, ADD torrc in apt sources:*
+*Note: Ubuntu Install, add torrc in apt sources:*
 
 ```bash
 sudo sh -c 'echo "deb https://deb.torproject.org/torproject.org $(lsb_release -sc) main" >> /etc/apt/sources.list.d/tor-project.list'
@@ -59,7 +71,7 @@ Edit ``config/proxies_profiles.cfg``:
 - ``host:`` proxy host  
 (for a linux docker, the localhost IP is 172.17.0.1; Should be adapted for other platform)
 - ``port:`` proxy port
-- ``type:`` proxy type
+- ``type:`` proxy type, `SOCKS5` or `HTTP`
 - ``description:`` proxy description
 - ``crawler_type:`` crawler type (tor or web)
 
@@ -94,6 +106,31 @@ memory=1
 maxrss=2000
 description= default splash tor
 ```
+
+Web proxy
+------------
+
+#### SQUID
+
+- Edit ``/etc/squid/squid.conf``:
+
+  ```bash
+  acl localnet src 172.17.0.0/16 # Docker IP range
+  http_access allow localnet
+  ```
+
+- Add a new proxy in ``config/proxies_profiles.cfg``:
+
+  ```bash
+  [squid_proxy]
+  host=172.17.0.1
+  port=3128
+  type=HTTP
+  description=squid web proxy
+  crawler_type=web
+  ```
+
+- Bind this proxy to a Splash docker in ``config/containers.cfg``
 
 API
   ------------
