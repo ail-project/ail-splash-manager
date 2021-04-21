@@ -20,11 +20,11 @@ Usage
 
 #### Launching AIL Splash Manager
 ```bash
-./launch.sh -l
+./LAUNCH.sh -l
 ```
 #### killing AIL Splash Manager and all Splash dockers
 ```bash
-./launch.sh -k
+./LAUNCH.sh -k
 ```
 
 Tor proxy
