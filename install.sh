@@ -14,6 +14,9 @@ sudo apt-get install tor -qq
 # install docker
 sudo apt install docker.io;
 
+# install  containerd
+sudo apt install containerd -y
+
 # pull splah docker
 sudo docker pull scrapinghub/splash;
 
