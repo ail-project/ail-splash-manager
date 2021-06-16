@@ -39,6 +39,24 @@ function launch_manager {
     printf "$GREEN    AIL Splash Manager launched\n"
 }
 
+function test_manager {
+    if [[ ! $issplashed ]]; then
+        echo -e $RED"\t* Please launch the Splash manager."$DEFAULT
+        exit 1
+    fi
+
+    printf $GREEN"$GREEN #### containers config: ####\n"$DEFAULT
+    cat config/containers.cfg
+
+    printf $GREEN"#### proxies config: ####\n"$DEFAULT
+    cat config/proxies_profiles.cfg
+
+    printf "$GREEN#### #### ####\n\n"$DEFAULT
+
+    printf "$GREEN Launching Tests ...\n"$DEFAULT
+    ./splash_manager.py -t
+}
+
 function kill_manager {
     if [[ $issplashed ]]; then
         echo -e $GREEN"Killing AIL Splash Manager"$DEFAULT
@@ -59,6 +77,9 @@ while [ "$1" != "" ]; do
     case $1 in
       -l)
           launch_manager;
+          ;;
+      -t)
+          test_manager;
           ;;
       -k)
           kill_manager;

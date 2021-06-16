@@ -42,7 +42,7 @@ def check_docker_permission():
         return True
 
 # docker ps | grep scrapinghub/splash
-def get_all_running_splash_docker():
+def get_all_running_splash_docker(r_text=False):
     containers_id = []
     # get docker short id
     cmd_1 = ['docker', 'ps']
@@ -52,6 +52,8 @@ def get_all_running_splash_docker():
     p1.stdout.close()  # Allow p1 to receive a SIGPIPE if p2 exits.
     output = p2.communicate()[0]
     if output:# If error
+        if r_text:
+            return output.decode()
         lines = output.decode().split('\n')
         for line in lines:
             if line:
@@ -518,6 +520,7 @@ def kill_all_splash_dockers():
     for container_id in containers_id:
         cmd_kill_docker(container_id)
 
+# # TODO: add a mod to only query
 class SplashManager(object):
     """docstring for SplashManager."""
 
@@ -786,18 +789,41 @@ def test_splash_docker(container_id):
 
     return True
 
+def tests():
+    print()
+    print('Splash Lists:')
+    print(get_all_running_splash_docker(r_text=True))
+    print()
+
+    print('')
+
+    containers_id = get_all_running_splash_docker()
+    for container_id in containers_id:
+        print(f'Testing Splash Docker {container_id}:')
+        res = test_splash_docker(container_id)
+        if not res:
+            print(f'ERROR: Splash Docker {container_id}') # # TODO: LOGS
+        else:
+            print('success')
+            print()
+
+
 # # # # #  ------ # # # # #
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Splash Manager Helper')
     parser.add_argument('-k', '--kill', help='Kill all Splash dockers', action="store_true", default=False)
+    parser.add_argument('-t', '--test', help='Launch Tests', action="store_true", default=False)
     args = parser.parse_args()
 
-    if not args.kill:
+    if not args.kill and not args.test:
         parser.print_help()
         sys.exit(0)
 
     if args.kill:
         kill_all_splash_dockers()
+
+    if args.test:
+        tests()
 
     ## DEBUG:
     #splashManager = SplashManager()
