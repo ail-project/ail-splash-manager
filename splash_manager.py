@@ -791,11 +791,9 @@ def test_splash_docker(container_id):
 
 def tests():
     print()
-    print('Splash Lists:')
+    print('Splash List:')
     print(get_all_running_splash_docker(r_text=True))
     print()
-
-    print('')
 
     containers_id = get_all_running_splash_docker()
     for container_id in containers_id:

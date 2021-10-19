@@ -54,7 +54,7 @@ function test_manager {
     printf "$GREEN#### #### ####\n\n"$DEFAULT
 
     printf "$GREEN Launching Tests ...\n"$DEFAULT
-    ./splash_manager.py -t
+    sudo ./splash_manager.py -t
 }
 
 function kill_manager {

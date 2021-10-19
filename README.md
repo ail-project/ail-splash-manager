@@ -27,6 +27,11 @@ Usage
 ./LAUNCH.sh -k
 ```
 
+#### Launching AIL Splash Manager Tests
+```bash
+./LAUNCH.sh -t
+```
+
 Tor proxy
 ------------
 
@@ -61,7 +66,14 @@ cd ail-splash-manager
   - Restart the tor proxy: ``sudo service tor restart``
 
 
-### Configuration
+Configuration
+------------
+
+##### [AIL framework crawlers configuration](https://github.com/ail-project/ail-framework/blob/master/HOWTO.md#configuration) :  
+  - Splash-Manager API key
+  - Splash-Manager URL
+  - Number of crawlers to launch
+  - https://github.com/ail-project/ail-framework/blob/master/HOWTO.md#configuration
 
 ##### Proxies:
 
@@ -133,7 +145,7 @@ Web proxy
 - Bind this proxy to a Splash docker in ``config/containers.cfg``
 
 API
-  ------------
+------------
 
 `api/v1/ping`
 
