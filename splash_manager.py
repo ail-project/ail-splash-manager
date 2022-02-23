@@ -323,7 +323,6 @@ def api_delete_proxy(proxy_name): ################################
         res = {'name': proxy_name}
         return (res, 200)
 
-#### ---- ####
 
 # # # # # # # # # # #
 # #     SPLASH    # #
@@ -512,7 +511,7 @@ def api_delete_splash_docker(splash_name):
         return (res, 200)
 
 # # # # # # # # # # # # # # # # #
-# # - - - -    CORE   - - - - # #
+#              CORE             #
 # # # # # # # # # # # # # # # # #
 
 def kill_all_splash_dockers():
