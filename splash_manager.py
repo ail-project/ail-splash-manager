@@ -539,7 +539,7 @@ class SplashManager(object):
         self.version = 'v0.1'
 
         # LAUNCH SPLASH DOCKERS #
-        print('Lauching all Splash dockers ...')
+        print('Launching all Splash dockers ...')
         print()
         if not check_docker_install():
             print('Error: docker install')
@@ -681,7 +681,7 @@ class SplashManager(object):
             self.add_splash_container(container_name, proxy_name, cpu, memory, maxrss, description=description)
             for port in ports:
                 if proxy_name not in self.get_all_proxies_name() and proxy_name != 'None': # # TODO: add me in launch_splash?
-                    print('Error: Unknow proxy, {}'.format(proxy_name)) # # TODO: handle error
+                    print('Error: Unknown proxy, {}'.format(proxy_name)) # # TODO: handle error
                 else:
                     self.launch_splash(container_name, port)
 
@@ -699,7 +699,7 @@ class SplashManager(object):
         # check if container exist
         #if splash_name:
         if not self.get_splash_container_by_name(splash_name):
-            return ({'status': 'error', 'reason': f'Unknow Splash Container Name: {splash_name}'}, 400)
+            return ({'status': 'error', 'reason': f'Unknown Splash Container Name: {splash_name}'}, 400)
         #else:
             # # TODO: search port
         #    pass
