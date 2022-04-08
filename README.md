@@ -108,6 +108,7 @@ A port range is used to launch multiple Splash Dockers
 - ``cpu:`` max number of cpu allocated
 - ``memory:``max RAM (Go) allocated
 - ``description:`` Splash description
+- ``net:`` network type (bridge, host...)
 
 ```bash
 [default_splash_tor] # section name: splash name
@@ -117,6 +118,7 @@ cpu=1
 memory=1
 maxrss=2000
 description= default splash tor
+net=bridge
 ```
 
 Web proxy
@@ -143,6 +145,32 @@ Web proxy
   ```
 
 - Bind this proxy to a Splash docker in ``config/containers.cfg``
+
+#### I2P
+- Edit ``config/containers.cfg``:
+
+  ```bash
+  [default_splash_i2p] # section name: splash name
+  proxy_name=default_i2p
+  port=8053-8055
+  cpu=1
+  memory=1
+  maxrss=2000
+  description=default splash i2p
+  net=host
+  ```
+
+- Add a new proxy in ``config/proxies_profiles.cfg``:
+
+  ```bash
+  [default_i2p]
+  host=127.0.0.1
+  port=4444
+  type=HTTP
+  description=i2p web proxy
+  crawler_type=web
+  ```
+
 
 API
 ------------

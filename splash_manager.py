@@ -137,7 +137,7 @@ def get_docker_state(container_id):
 #           --memory=<MEMORY SIZE>G
 #           {-v <PROXY PROFILE LOCATION>:/etc/splash/proxy-profiles/ --net=bridge}
 #           scrapinghub/splash --maxrss <MAXRSS>
-def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss=3000):
+def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss=3000, net="bridge"):
     cmd = ['docker', 'run', '-d']
     # bind port number
     cmd.append('-p')
@@ -152,7 +152,7 @@ def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss
         proxy_profile_dir = os.path.join(proxy_dir, 'etc/splash/proxy-profiles')
         cmd.append('-v')
         cmd.append('{}:/etc/splash/proxy-profiles/'.format(proxy_profile_dir))
-        cmd.append('--net=bridge')
+        cmd.append('--net={}'.format(net))
     # docker name
     cmd.append('scrapinghub/splash')
     # maxrss
@@ -161,8 +161,8 @@ def build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=1, memory=2, maxrss
     return cmd
 
 # docker run
-def cmd_launch_docker(port_number, proxy_dir, proxy_name, cpu, memory, maxrss):
-    cmd = build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=cpu, memory=memory, maxrss=maxrss)
+def cmd_launch_docker(port_number, proxy_dir, proxy_name, cpu, memory, maxrss, net):
+    cmd = build_docker_cmd(port_number, proxy_dir, proxy_name, cpu=cpu, memory=memory, maxrss=maxrss, net=net)
     #print(cmd)
     p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.stderr:
@@ -370,8 +370,8 @@ class SplashContainer(object):
     def get_splash_by_port(self, port):
         return self.splash[port]
 
-    def launch_splash(self, port): # CREATE SPLASH OBJECT
-        new_docker_id = cmd_launch_docker(port, self.get_proxy_dir(), self.get_proxy_name(), self.cpu, self.memory, self.maxrss)
+    def launch_splash(self, port, net): # CREATE SPLASH OBJECT
+        new_docker_id = cmd_launch_docker(port, self.get_proxy_dir(), self.get_proxy_name(), self.cpu, self.memory, self.maxrss, net)
         # New Docker Launched
         if new_docker_id:
             self.splash[port] = Splash(new_docker_id, port, self)
@@ -636,8 +636,8 @@ class SplashManager(object):
             l_splash.append(self.get_splash_container_by_name(container_name).get_all_splash())
         return l_splash
 
-    def launch_splash(self, container_name, port):
-        self.get_splash_container_by_name(container_name).launch_splash(port)
+    def launch_splash(self, container_name, port, net):
+        self.get_splash_container_by_name(container_name).launch_splash(port, net)
 
     def add_splash_container(self, name, proxy_name, cpu, memory, maxrss, description=None):
         proxy = self.get_proxy_by_name(proxy_name)
@@ -662,6 +662,7 @@ class SplashManager(object):
             maxrss = cfg.getint(container_name, 'maxrss')
             ports = cfg.get(container_name, 'port')
             ports = ports.split('-')
+            net = cfg.get(container_name, "net")
             if len(ports) > 1:
                 try:
                     start = int(ports[0])
@@ -682,7 +683,7 @@ class SplashManager(object):
                 if proxy_name not in self.get_all_proxies_name() and proxy_name != 'None': # # TODO: add me in launch_splash?
                     print('Error: Unknown proxy, {}'.format(proxy_name)) # # TODO: handle error
                 else:
-                    self.launch_splash(container_name, port)
+                    self.launch_splash(container_name, port, net)
 
     def restart_docker(self, splash_name, port, soft=True):
         splash = self.get_splash_container_by_name(splash_name).get_splash_by_port(port)

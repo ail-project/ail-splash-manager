@@ -22,3 +22,12 @@ crawler_type=tor
 #type=HTTP
 #description=web proxy
 #crawler_type=web
+
+# I2P proxy
+#[default_i2p]
+#host=127.0.0.1
+#port=4444
+#type=HTTP
+#description=i2p web proxy
+#crawler_type=web
+

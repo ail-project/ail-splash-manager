@@ -11,6 +11,7 @@ cpu=1
 memory=1
 maxrss=2000
 description= default splash tor
+net=bridge
 
 # Splash with SQUID proxy
 #[web_splash]
@@ -20,5 +21,14 @@ description= default splash tor
 #memory=1
 #maxrss=2000
 #description= web splash
+#net=bridge
 
-
+# Splash with I2P proxy
+#[default_splash_i2p] # section name: splash name
+#proxy_name=default_i2p
+#port=8053-8055
+#cpu=1
+#memory=1
+#maxrss=2000
+#description=default splash i2p
+#net=host
