@@ -6,6 +6,8 @@ The purpose of this Flask server is to simplify the installation and manage them
 - handle proxies
 - check crawler status
 
+
+
 Installation
 ------------
 
@@ -14,6 +16,8 @@ git clone https://github.com/ail-project/ail-splash-manager.git
 cd ail-splash-manager
 ./install.sh
 ```
+
+
 
 Usage
 ------------
@@ -31,6 +35,8 @@ Usage
 ```bash
 ./LAUNCH.sh -t
 ```
+
+
 
 Tor proxy
 ------------
@@ -66,6 +72,7 @@ cd ail-splash-manager
   - Restart the tor proxy: ``sudo service tor restart``
 
 
+
 Configuration
 ------------
 
@@ -85,7 +92,7 @@ Edit ``config/proxies_profiles.cfg``:
 - ``port:`` proxy port
 - ``type:`` proxy type, `SOCKS5` or `HTTP`
 - ``description:`` proxy description
-- ``crawler_type:`` crawler type (tor or web)
+- ``crawler_type:`` crawler type (tor or i2p or web)
 
 ```bash
 [default_tor] # section name: proxy name
@@ -121,6 +128,44 @@ description= default splash tor
 net=bridge
 ```
 
+
+
+## I2P
+
+### Installation:
+
+Go on [i2p](https://geti2p.net/en/) website and follow the installation instruction
+
+### Configuration
+
+- Edit ``config/containers.cfg``:
+    - `net:` need to be host to work
+
+~~~~bash
+[default_splash_i2p] # section name: splash name
+proxy_name=default_i2p
+port=8053-8055
+cpu=1
+memory=1
+maxrss=2000
+description=default splash i2p
+net=host
+~~~~
+
+- Add a new proxy in ``config/proxies_profiles.cfg``:
+    - `host:` need to be 127.0.0.1 to work
+
+~~~bash
+[default_i2p]
+host=127.0.0.1
+port=4444
+type=HTTP
+description=i2p default proxy
+crawler_type=i2p
+~~~
+
+
+
 Web proxy
 ------------
 
@@ -146,30 +191,7 @@ Web proxy
 
 - Bind this proxy to a Splash docker in ``config/containers.cfg``
 
-#### I2P
-- Edit ``config/containers.cfg``:
 
-  ```bash
-  [default_splash_i2p] # section name: splash name
-  proxy_name=default_i2p
-  port=8053-8055
-  cpu=1
-  memory=1
-  maxrss=2000
-  description=default splash i2p
-  net=host
-  ```
-
-- Add a new proxy in ``config/proxies_profiles.cfg``:
-
-  ```bash
-  [default_i2p]
-  host=127.0.0.1
-  port=4444
-  type=HTTP
-  description=i2p web proxy
-  crawler_type=web
-  ```
 
 
 API

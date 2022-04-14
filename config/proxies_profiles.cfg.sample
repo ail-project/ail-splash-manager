@@ -12,7 +12,7 @@ port=9050
 type=SOCKS5
 # proxy description
 description=tor default proxy
-# crawler type (tor or web)
+# crawler type (tor or i2p or web)
 crawler_type=tor
 
 # SQUID proxy
@@ -28,6 +28,6 @@ crawler_type=tor
 #host=127.0.0.1
 #port=4444
 #type=HTTP
-#description=i2p web proxy
-#crawler_type=web
+#description=i2p default proxy
+#crawler_type=i2p
 
