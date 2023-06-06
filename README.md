@@ -1,3 +1,8 @@
+# Deprecated: AIL v5.0 crawler has been upgraded to [Lacus](https://github.com/ail-project/lacus)
+
+## https://github.com/ail-project/lacus
+## AIL no longer relies on any Docker image.
+
 # ail-splash-manager
 
 AIL crawlers are using a splash crawler to fetch and render a domain.  
